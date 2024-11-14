@@ -13,7 +13,7 @@ erro = TEP/BASE
 Pg = np.array([0, 0.40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=np.float64)
 Qg = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=np.float64)
 Pl = np.array([0, 0.217, 0.942, 0.478, 0.076, 0.112, 0, 0, 0.295, 0.09, 0.035, 0.061, 0.135, 0.149], dtype=np.float64)
-Ql = np.array([0, 0.127, 0.19, -0.039, 0.016, 0.075, 0, 0, 0.166, 0.058, 0.018, 0.016, 0.058, 0.05], dtype=np.float64)
+Ql = np.array([0, 0.127, 0.19, 0.039, 0.016, 0.075, 0, 0, 0.166, 0.058, 0.018, 0.016, 0.058, 0.05], dtype=np.float64)
 tipo = np.array(['SLACK', 'PV', 'PV', 'PQ', 'PQ', 'PV', 'PQ', 'PV', 'PQ', 'PQ', 'PQ', 'PQ', 'PQ', 'PQ'])
 
 P = Pg - Pl
@@ -68,7 +68,7 @@ for barra1, barra2, r, x, q in dlin:
 
 # Compensador
 Sh = 19
-ybus[8][8] += Sh/BASE
+ybus[8][8] += 1j * Sh/BASE
 
 # Display da matriz Ybus
 lista_ybus = []
@@ -300,16 +300,16 @@ tabela_dbar = [['Barra', 'V [pu]', 'θ [rad]', 'θ [°]', 'P [pu]', 'Q [pu]']]
 # Encontrando Pk e Qk
 
 for k in range(0, n):
-    if P[k] == 0:
-        expressao = 0
-        for m in range(0, n):
-            expressao += V[k]*V[m]*(np.real(ybus[k][m])*np.cos(θ[k]-θ[m]) + np.imag(ybus[k][m])*np.sin(θ[k]-θ[m]))
-        P[k] = expressao
-    if Q[k] == 0:
-        expressao = 0
-        for m in range(0, n):
-            expressao += V[k]*V[m]*(np.real(ybus[k][m])*np.sin(θ[k]-θ[m]) - np.imag(ybus[k][m])*np.cos(θ[k]-θ[m]))
-        Q[k] = expressao
+    expressao = 0
+    for m in range(0, n):
+        expressao += V[k]*V[m]*(np.real(ybus[k][m])*np.cos(θ[k]-θ[m]) + np.imag(ybus[k][m])*np.sin(θ[k]-θ[m]))
+    P[k] = expressao
+    expressao = 0
+    for m in range(0, n):
+        valor = V[k]*V[m]*(np.real(ybus[k][m])*np.sin(θ[k]-θ[m]) - np.imag(ybus[k][m])*np.cos(θ[k]-θ[m]))
+        expressao += valor
+    print('fim')
+    Q[k] = expressao
     tabela_dbar.append([k+1, V[k], θ[k], np.degrees(θ[k]), P[k], Q[k]])
 
 print("Tabela 6 - Resumo dos dados de barra após resolução do sistema.")

@@ -11,15 +11,15 @@ erro = TEP/BASE
 
 # DBAR
 Pg = np.array([0, 0.40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=np.float64)
-Qg = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=np.float64)
+Qg = np.array([0, 0.8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=np.float64)
 Pl = np.array([0, 0.217, 0.942, 0.478, 0.076, 0.112, 0, 0, 0.295, 0.09, 0.035, 0.061, 0.135, 0.149], dtype=np.float64)
-Ql = np.array([0, 0.127, 0, -0.039, 0.016, 0.06, 0, 0, 0.166, 0.058, 0.018, 0.016, 0.058, 0.05], dtype=np.float64)
-tipo = np.array(['SLACK', 'PV', 'PQ', 'PQ', 'PQ', 'PQ', 'PQ', 'PV', 'PQ', 'PQ', 'PQ', 'PQ', 'PQ', 'PQ'])
+Ql = np.array([0, 0, 0, 0.039, 0.016, 0.075, 0, 0, 0.166, 0.058, 0.018, 0.016, 0.058, 0.05], dtype=np.float64)
+tipo = np.array(['SLACK', 'PQ', 'PQ', 'PQ', 'PQ', 'PV', 'PQ', 'PV', 'PQ', 'PQ', 'PQ', 'PQ', 'PQ', 'PQ'])
 
 P = Pg - Pl
 Q = Qg - Ql
 
-V = np.array([1.02, 1.05, 0, 0, 0, 0, 0, 1.00, 0, 0, 0, 0, 0, 0], dtype=np.float64)
+V = np.array([1.02, 0, 0, 0, 0, 1.00, 0, 1.00, 0, 0, 0, 0, 0, 0], dtype=np.float64)
 θ = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=np.float64)
 n = 14
 
@@ -68,7 +68,7 @@ for barra1, barra2, r, x, q in dlin:
 
 # Compensador
 Sh = 19
-ybus[8][8] += Sh/BASE
+ybus[8][8] += 1j * Sh/BASE
 
 # Display da matriz Ybus
 lista_ybus = []

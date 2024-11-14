@@ -1,8 +1,12 @@
 import numpy as np
 
 
-def Load(alpha, opcao, V=None, Pg=None, Qg=None, Ql=None, tipo=None):
+def Load(alpha, opcao, slim=None, ybus=None, V=None, Pg=None, Qg=None, Ql=None, tipo=None):
     # Definição dos valores padrões
+    if slim is None:
+        slim = False
+    if ybus is None:
+        ybus = YBus()
     if V is None:
         V = np.array([1.02, 1.05, 1.00, 0, 0, 1.00, 0, 1.00, 0, 0, 0, 0, 0, 0], dtype=np.float64)
     if Pg is None:
@@ -10,10 +14,12 @@ def Load(alpha, opcao, V=None, Pg=None, Qg=None, Ql=None, tipo=None):
     if Qg is None:
         Qg = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=np.float64)
     if Ql is None:
-        Ql = np.array([0, 0.127, 0.19, -0.039, 0.016, 0.075, 0, 0, 0.166, 0.058, 0.018, 0.016, 0.058, 0.05],
+        Ql = np.array([0, 0.127, 0.19, 0.039, 0.016, 0.075, 0, 0, 0.166, 0.058, 0.018, 0.016, 0.058, 0.05],
             dtype=np.float64)
     if tipo is None:
         tipo = np.array(['SLACK', 'PV', 'PV', 'PQ', 'PQ', 'PV', 'PQ', 'PV', 'PQ', 'PQ', 'PQ', 'PQ', 'PQ', 'PQ'])
+    V_novo = np.copy(V)
+
     # DCTE
     BASE = 100
     TEP = 0.01
@@ -38,60 +44,22 @@ def Load(alpha, opcao, V=None, Pg=None, Qg=None, Ql=None, tipo=None):
         elif tipo_barra == 'SLACK':
             slack.append(i)
 
-    # DLIN
-    dlin = np.array([
-        (1, 2, 1.938, 5.917, 5.28),
-        (1, 5, 5.403, 22.304, 4.92),
-        (2, 3, 4.699, 19.797, 4.38),
-        (2, 4, 5.811, 17.632, 3.74),
-        (2, 5, 5.695, 17.388, 3.4),
-        (3, 4, 6.701, 17.103, 3.56),
-        (4, 5, 1.335, 4.211, 1.28),
-        (4, 7, 0, 20.912, 0),
-        (4, 9, 0, 55.618, 0),
-        (5, 6, 0, 25.202, 0),
-        (6, 11, 9.498, 19.89, 0),
-        (6, 12, 12.291, 25.581, 0),
-        (6, 13, 6.615, 13.027, 0),
-        (7, 8, 0, 17.615, 0),
-        (7, 9, 0, 11.001, 0),
-        (9, 10, 3.181, 8.45, 0),
-        (9, 14, 12.711, 27.038, 0),
-        (10, 11, 8.205, 19.207, 0),
-        (12, 13, 22.092, 19.988, 0),
-        (13, 14, 17.093, 34.802, 0)], dtype=np.float64)
-
-    # Matrizes Y, G e B
-    ybus = np.zeros((n, n), dtype=complex)
-
-    for barra1, barra2, r, x, q in dlin:
-        barra1 = int(barra1)
-        barra2 = int(barra2)
-        ybus[barra1 - 1][barra1 - 1] += 1 / (r / 100 + 1j * x / 100) + 1j * q / (BASE * 2)
-        ybus[barra2 - 1][barra2 - 1] += 1 / (r / 100 + 1j * x / 100) + 1j * q / (BASE * 2)
-        ybus[barra1 - 1][barra2 - 1] -= 1 / (r / 100 + 1j * x / 100)
-        ybus[barra2 - 1][barra1 - 1] -= 1 / (r / 100 + 1j * x / 100)
-
-    # Compensador
-    Sh = 19
-    ybus[8][8] += Sh / BASE
-
     # Identificação das variáveis
     n_θ = 0
     n_V = 0
     index_θ = []
     index_V = []
-
-    for i in range(1, n):
-        if θ[i] == 0:
+    # print(f'V_novo = {V_novo}')
+    # print(f'V = {V}')
+    for i in range(0, n):
+        if θ[i] == 0 and tipo[i] != 'SLACK':
             n_θ += 1
             index_θ.append(i)
-    for i in range(0, n):
         if V[i] == 0:
             n_V += 1
             index_V.append(i)
             V[i] = 1
-
+    # print(n_V)
     # Laço iterativo
     iterations = 0
     while True:
@@ -221,32 +189,25 @@ def Load(alpha, opcao, V=None, Pg=None, Qg=None, Ql=None, tipo=None):
         iterations += 1
 
         # Critério de parada
-        if iterations > 50:
+        if iterations > 10:
             return [False]
     # Encontrando Pk e Qk
     for k in range(0, n):
-        if P[k] == 0:
-            expressao = 0
-            for m in range(0, n):
-                expressao += V[k] * V[m] * (
-                        np.real(ybus[k][m]) * np.cos(θ[k] - θ[m]) + np.imag(ybus[k][m]) * np.sin(θ[k] - θ[m]))
-            P[k] = expressao
-        if Q[k] == 0:
-            expressao = 0
-            for m in range(0, n):
-                expressao += V[k] * V[m] * (
-                        np.real(ybus[k][m]) * np.sin(θ[k] - θ[m]) - np.imag(ybus[k][m]) * np.cos(θ[k] - θ[m]))
-            Q[k] = expressao
+        expressao = 0
+        for m in range(0, n):
+            expressao += V[k] * V[m] * (
+                    np.real(ybus[k][m]) * np.sin(θ[k] - θ[m]) - np.imag(ybus[k][m]) * np.cos(θ[k] - θ[m]))
+        Q[k] = expressao
 
     # Verificando violações de limites
     if opcao:
         Qn = (1 / BASE) * np.array([-9999, -40, 0, 0, 0, -6, 0, -6, 0, 0, 0, 0, 0, 0], dtype=np.float64)
         Qm = (1 / BASE) * np.array([500, 80, 70, 0, 0, 40, 0, 40, 0, 0, 0, 0, 0, 0], dtype=np.float64)
         violacao = False
-        V_novo = np.array([1.02, 1.05, 1.00, 0, 0, 1.00, 0, 1.00, 0, 0, 0, 0, 0, 0], dtype=np.float64)
         Qg_novo = Qg
         Ql_novo = Ql
         tipo_novo = tipo
+        # print(f'V_novo antes: {V_novo}')
         for k in range(len(Q)):
             if (Q[k] > Qm[k] or Q[k] < Qn[k]) and tipo[k] == 'PV':
                 if Q[k] > Qm[k]:
@@ -258,25 +219,138 @@ def Load(alpha, opcao, V=None, Pg=None, Qg=None, Ql=None, tipo=None):
                 tipo_novo[k] = 'PQ'
                 violacao = True
         if violacao:
-            return Load(alpha, False, V_novo, Pg, Qg_novo, Ql_novo, tipo_novo)
+            return Load(alpha, False, slim, ybus, V=V_novo, Pg=Pg, Qg=Qg_novo, Ql=Ql_novo, tipo=tipo_novo)
+        else:
+            return True, V
+    elif slim:
+        Smax = (1/BASE)*np.array([210, 100, 100, 100, 100, 100, 250, 50, 100, 100, 25, 50, 55, 50, 100, 100, 100, 150, 60, 50], dtype=np.float64)
+        dlin = np.array([
+            (1, 2, 1.938, 5.917, 5.28),
+            (1, 5, 5.403, 22.304, 4.92),
+            (2, 3, 4.699, 19.797, 4.38),
+            (2, 4, 5.811, 17.632, 3.74),
+            (2, 5, 5.695, 17.388, 3.4),
+            (3, 4, 6.701, 17.103, 3.56),
+            (4, 5, 1.335, 4.211, 1.28),
+            (4, 7, 0, 20.912, 0),
+            (4, 9, 0, 55.618, 0),
+            (5, 6, 0, 25.202, 0),
+            (6, 11, 9.498, 19.89, 0),
+            (6, 12, 12.291, 25.581, 0),
+            (6, 13, 6.615, 13.027, 0),
+            (7, 8, 0, 17.615, 0),
+            (7, 9, 0, 11.001, 0),
+            (9, 10, 3.181, 8.45, 0),
+            (9, 14, 12.711, 27.038, 0),
+            (10, 11, 8.205, 19.207, 0),
+            (12, 13, 22.092, 19.988, 0),
+            (13, 14, 17.093, 34.802, 0)], dtype=np.float64)
+        Skm = []
+        S_violacao = False
+        for barra1, barra2, r, x, q in dlin:
+            k = int(barra1) - 1
+            m = int(barra2) - 1
+            rkm = r / 100
+            xkm = x / 100
+            gkm = rkm / (np.square(rkm) + np.square(xkm))
+            bkm = -xkm / (np.square(xkm) + np.square(rkm))
+            bsh = q / (2 * BASE)
+            pkm = np.square(V[k]) * gkm - V[k] * V[m] * gkm * np.cos(θ[k] - θ[m]) - V[k] * V[m] * bkm * np.sin(
+                θ[k] - θ[m])
+            qkm = -np.square(V[k]) * (bkm + bsh) + V[k] * V[m] * bkm * np.cos(θ[k] - θ[m]) - V[k] * V[m] * gkm * np.sin(
+                θ[k] - θ[m])
+            skm = np.sqrt(pkm ** 2 + qkm ** 2)
+            Skm.append(skm)
+        for i in range(n):
+            if Skm[i] > Smax[i]:
+                S_violacao = True
+        if S_violacao:
+            # print(f'Nicolas corno!!! Alpha = {alpha}')
+            return [False]
         else:
             return True, V
     else:
         return True, V
 
 
-def MaxLoad(tipo, posicao):
+def MaxLoad(tipo, posicao, ybus):
     if tipo == 'ATIVO':
         a = 0
-        b = 5
+        b = 2
         while b - a > 0.0001:
             c = 0.5 * (a + b)
-            valor_c = Load(c, True, Pg=np.array([0, posicao[0], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=np.float64))
-            # print(c, valor_c)
+            valor_c = Load(c, True, True, ybus, Pg=np.array([0, posicao[0], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=np.float64))
             if valor_c[0]:
                 a = c
             else:
                 b = c
-        # print(a)
+        return a
+    elif tipo == 'REATIVO':
+        a = 0
+        b = 2
+        while b - a > 0.0001:
+            c = 0.5 * (a + b)
+            valor_c = Load(c, True, True, ybus, V=np.array([posicao[0], posicao[1], posicao[2], 0, 0, posicao[3], 0, posicao[4], 0, 0, 0, 0, 0, 0], dtype=np.float64))
+            if valor_c[0]:
+                a = c
+            else:
+                b = c
+        return a
+    else:
+        a = 0
+        b = 2
+        while b - a > 0.0001:
+            c = 0.5 * (a + b)
+            valor_c = Load(c, True, True, ybus, V=np.array(
+                [posicao[0], posicao[1], posicao[2], 0, 0, posicao[3], 0, posicao[4], 0, 0, 0, 0, 0, 0],
+                dtype=np.float64), Pg=np.array([0, posicao[5], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=np.float64))
+            if valor_c[0]:
+                a = c
+            else:
+                b = c
         return a
 
+def YBus():
+    # DCTE
+    BASE = 100
+    n = 14
+
+    # DLIN
+    dlin = np.array([
+        (1, 2, 1.938, 5.917, 5.28),
+        (1, 5, 5.403, 22.304, 4.92),
+        (2, 3, 4.699, 19.797, 4.38),
+        (2, 4, 5.811, 17.632, 3.74),
+        (2, 5, 5.695, 17.388, 3.4),
+        (3, 4, 6.701, 17.103, 3.56),
+        (4, 5, 1.335, 4.211, 1.28),
+        (4, 7, 0, 20.912, 0),
+        (4, 9, 0, 55.618, 0),
+        (5, 6, 0, 25.202, 0),
+        (6, 11, 9.498, 19.89, 0),
+        (6, 12, 12.291, 25.581, 0),
+        (6, 13, 6.615, 13.027, 0),
+        (7, 8, 0, 17.615, 0),
+        (7, 9, 0, 11.001, 0),
+        (9, 10, 3.181, 8.45, 0),
+        (9, 14, 12.711, 27.038, 0),
+        (10, 11, 8.205, 19.207, 0),
+        (12, 13, 22.092, 19.988, 0),
+        (13, 14, 17.093, 34.802, 0)], dtype=np.float64)
+
+    # Matrizes Y, G e B
+    ybus = np.zeros((n, n), dtype=complex)
+
+    for barra1, barra2, r, x, q in dlin:
+        barra1 = int(barra1)
+        barra2 = int(barra2)
+        ybus[barra1 - 1][barra1 - 1] += 1 / (r / 100 + 1j * x / 100) + 1j * q / (BASE * 2)
+        ybus[barra2 - 1][barra2 - 1] += 1 / (r / 100 + 1j * x / 100) + 1j * q / (BASE * 2)
+        ybus[barra1 - 1][barra2 - 1] -= 1 / (r / 100 + 1j * x / 100)
+        ybus[barra2 - 1][barra1 - 1] -= 1 / (r / 100 + 1j * x / 100)
+
+    # Compensador
+    Sh = 19
+    ybus[8][8] += 1j * Sh/BASE
+
+    return ybus
